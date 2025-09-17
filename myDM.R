@@ -1,36 +1,22 @@
 myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
-  print(paste("nrow(roads$hroads):", nrow(roads$hroads), "ncol(roads$hroads):", ncol(roads$hroads)))
-  print(paste("nrow(roads$vroads):", nrow(roads$vroads), "ncol(roads$vroads):", ncol(roads$vroads)))
-
   if (car$load == 0) {
     print("we have not picked up a package")
   } else {
     print("we have picked up a package")
   }
   
+  hroads <- roads$hroads # matrix
+  vroads <- roads$vroads # matrix
 
-  hroads <- roads$hroads   # matrix
-  vroads <- roads$vroads   # matrix
-  cx = car$x
-  cy = car$y
-
+  print(paste("car pos: ", car$x, " ", car$y))
 
 
-  print(paste("car pos: ", cx, " ", cy))
-  print(paste("hroads[", cy, ",", cx, "] :", hroads[cy,cx]))
-  print(paste("vroads[", cy, ",", cx, "] :", vroads[cy,cx]))
+  nbh <- neigbouring_cost(roads,car$x,car$y)
+  print(paste("neighbour up:",nbh$u))
+  print(paste("neighbour right:",nbh$r))
+  print(paste("neighbour down:",nbh$d))
+  print(paste("neighbour left:",nbh$l))
 
-  # for (r in seq_len(nrow(hroads))) {
-  #   for (c in seq_len(ncol(hroads))) {
-  #     # Do something with hroads[r, c]
-  #     print(paste("c:", c, "r:", r, "cost:", hroads[r, c]))
-  #   }
-  # }
-
-
-  # for(c in neigbouring_cost(roads,cx,cy)){
-  #   print(c)
-  # }
 
   if (car$load>0) {
     print(paste("Current load:",car$load))
@@ -39,37 +25,37 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
   car$nextMove=readline("Enter next move. Valid moves are 2,4,6,8,0 (directions as on keypad) or q for quit.")
   if (car$nextMove=="q") {stop("Game terminated on user request.")}
   
-
   car
 }
 
-neigbouring_cost <- function(roads,x,y,dimx,dimy) {
-  neighbourhood = list (u=-1,ur=-1,r=-1,dr=-1,d=-1,dl=-1,l=-1,ul=-1)
-  # fetch up cell (if in bounds)
-  if(y +1 < dimy) {
-    neighbourhood$u = roads[x,y+1]
-  }# fetch up-right cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }# fetch right cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }# fetch down-right cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }# fetch down cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }# fetch down-left cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }# fetch left cell (if in bounds)
-  if(x -1 > 0) {
-    
-  }
-  # fetch up-left cell (if in bounds)
-  if(x -1 > 0) {
+neigbouring_cost <- function(roads, x, y) {
+  hroads <- roads$hroads
+  vroads <- roads$vroads
 
+  neighbourhood <- list(u=-1, r=-1, d=-1, l=-1)
+
+  # fetch up cell (if in bounds)
+  if (y + 1 <= ncol(hroads)) {    # check column bounds
+    neighbourhood$u <- hroads[x, y + 1]
   }
-  neighbourhood
-} 
+  # fetch right cell (if in bounds)
+  if (x + 1 <= nrow(hroads)) {    # check row bounds
+    neighbourhood$r <- hroads[x + 1, y]
+  }
+  # fetch down cell (if in bounds)
+  if (y - 1 >= 1) {
+    neighbourhood$d <- hroads[x, y - 1]
+  }
+  # fetch left cell (if in bounds)
+  if (x - 1 >= 1) {
+    neighbourhood$l <- hroads[x - 1, y]
+  }
+
+  return(neighbourhood)
+}
+
+a_star <- function(start,target,roads) {
+  # TODO: implement A star here 
+  next_move <- 5
+  return next_move
+}
