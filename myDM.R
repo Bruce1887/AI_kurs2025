@@ -1,14 +1,10 @@
 myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
-  print(paste("car pos: ", car$x,car$y))
-
   dim <- nrow(roads$vroads);
   if(ncol(roads$hroads) != nrow(roads$vroads)) {
     stop(paste("bad dimension",dim))
   }
 
   if (car$load>0) {
-    print(paste("Current load:",car$load))
-    print(paste("Destination: X",packages[car$load,3],"Y",packages[car$load,4]))
     # FLytta postgubben med A_star algoritmen när du har ett paket
     car$nextMove = a_star(list(x=car$x,y=car$y), list(x=packages[car$load,3],y=packages[car$load,4]),roads,dim)
   }
@@ -17,52 +13,12 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
     car$nextMove=readline("Enter next move. Valid moves are 2,4,6,8,0 (directions as on keypad) or q for quit.")
     
     if (car$nextMove=="q") {stop("Game terminated on user request.")}
-    else if (car$nextMove=="p") { 
-      # Printar ut grannarna till Car
-      print_neighbourhood(car,roads)
-    }
   }
   
   car
 }
 
-print_neighbourhood <- function(roads,pos){
-  nbh <- neigbouring_cost(roads,pos)
-  print(paste("neighbour up:",nbh$u))
-  print(paste("neighbour right:",nbh$r))
-  print(paste("neighbour down:",nbh$d))
-  print(paste("neighbour left:",nbh$l))
-}
-
-neigbouring_cost <- function(roads, pos) {
-  hroads <- roads$hroads
-  vroads <- roads$vroads
-
-  neighbourhood <- list(u=-1, r=-1, d=-1, l=-1)
-
-  # fetch up cell (if in bounds)
-  if (pos$y + 1 <= ncol(vroads)) {    # check column bounds
-    neighbourhood$u <- vroads[pos$x, pos$y + 1]
-  }
-  # fetch right cell (if in bounds)
-  if (pos$x + 1 <= nrow(hroads)) {    # check row bounds
-    neighbourhood$r <- hroads[pos$x + 1, pos$y]
-  }
-  # fetch down cell (if in bounds)
-  if (pos$y - 1 >= 1) {
-    neighbourhood$d <- vroads[pos$x, pos$y - 1]
-  }
-  # fetch left cell (if in bounds)
-  if (pos$x - 1 >= 1) {
-    neighbourhood$l <- hroads[pos$x - 1, pos$y]
-  }
-
-  return(neighbourhood)
-}
-
 a_star <- function(start,target,roads,dim) {
-  print(paste("start:", start, "target:",target))
-
   target_found <- FALSE
   current = start
 
@@ -71,134 +27,164 @@ a_star <- function(start,target,roads,dim) {
   h_costs = matrix(rep(-1,dim*dim),nrow=dim)
   # f_costs = <blablabla> # vi behöver inte en f_costs matris, vi deriverar den från g & h
   
-
   # Sätt g kostnaded på första rutan till 0, behövs för att räkna g_kostnaden till andra rutor.
   g_costs[start$x,start$y] = 0
-
 
   manhattan <- function(ax, ay, bx, by){
     return (abs(ax-bx) + abs(ay-by))
   }
 
-  # Node constructor
-  make_node <- function(value, next_node = NULL) {
-    list(value = value, next_node = next_node)
+  make_node <- function(x,y, next_node) {
+    node <- new.env(parent = emptyenv())
+    node$x <- x
+    node$y <- y
+    node$next_node <- next_node
+    node
+  }
+
+  print_list <- function(head) {
+    cat("List: ")
+    cur <- head
+    while (!is.null(cur)) {
+      cat(cur$value, "-> ")
+      cur <- cur$next_node
+    }
+    cat("NULL\n")
+  }
+
+  insert_value_at_correct_place <- function(head, x, y, dim, g_costs, h_costs) {
+    if (is.null(head)) {
+      message("inserted new head ", x, y, " in empty list")
+      return(make_node(x,y,NULL))
+    }
+
+    new_g <- g_costs[x, y]
+    new_f <- new_g + h_costs[x, y]
+
+
+    head_g <- g_costs[head$x, head$y]
+    head_f <- head_g + h_costs[head$x, head$y]
+    
+    if (new_f < head_f || (new_f == head_f && new_g <= head_g)) {
+      new_node <- make_node(x,y, head)
+      message("inserted new head ", x, y, " in non-empty list")
+      return(new_node)
+    }
+
+    current <- head
+    while (!is.null(current$next_node)) {
+      next_node <- current$next_node
+      next_g <- g_costs[next_node$x, next_node$y]
+      next_f <- next_g + h_costs[next_node$x, next_node$y]
+
+      if (new_f < next_f || (new_f == next_f && new_g <= next_g)) {
+        break
+      }
+      current <- current$next_node
+    }
+
+    message("inserted ", x,y, " after ", current$x,current$y)
+    new_node <- make_node(x,y, current$next_node)
+    current$next_node <- new_node   # this mutates the original list because nodes are environments
+    print_list(head)
+    return(head)
   }
 
 
-  # Insert after a specific node
-  insert_after <- function(node, value) {
-    new_node <- make_node(value, node$next_node)
-    node$next_node <- new_node
-    invisible(new_node)
-  }
 
   pop_front <- function(head_ref) {
     if (is.null(head_ref$head)) return(NULL)
-    value <- head_ref$head$value
+    old_head <- head_ref$head
     head_ref$head <- head_ref$head$next_node
-    value
+    old_head
   }
-
 
   # Print the list
   print_list <- function(node) {
     print("printing list..")
     while (!is.null(node)) {
-      cat(node$value, " -> ")
+      cat(paste(node$x,node$y), " -> ")
       node <- node$next_node
     }
     cat("NULL\n")
   }
 
-  foo <- current$x * dim + current$y
-
   # Create a head reference as environment
   frontier <- new.env()
-  frontier$head <- make_node(foo, NULL)
+  frontier$head <- make_node(current$x, current$y, NULL)
 
   print_list(frontier$head)
   
   next_move <- -1
 
-  while((current$x != target$x) && (current$y != target$y)) {
+  print(paste("<current>", current$x,current$y, ", <target>", target$x,target$y))
+
+  temp = 0
+  while(!(current$x == target$x && current$y == target$y)) {
+
+    print("#### TOP OF LOOP ####\n")
+
     first <-pop_front(frontier)
     if(is.null(first)) {
       stop("Could not pop first element (got null)")
     }
 
-    print(paste("popped:", first))
+    if((current$x == target$x && current$y == target$y))
+    {
+      print("WE FOUND THE TARGET")
+      break
+    }
+
+
+    print(paste("popped:", first$x,first$y))
 
     current = list(
-      x=first %/% dim,
-      y=first%%dim)
+      x=first$x,
+      y=first$y)
 
     print(paste("current:", current$x,current$y))
 
     hroads <- roads$hroads
     vroads <- roads$vroads
 
-    # check up cell (if in bounds)
-    if (current$y + 1 <= ncol(vroads)) {
-      if(h_costs[current$x, current$y + 1] == -1) {
-        # h_cost is unset for this cell, set it
-        h_costs[current$x, current$y + 1] = manhattan(current$x, current$y + 1, target$x,target$y)
+    # Define possible moves: (dx, dy, cost_matrix)
+    moves <- list(
+      up    = list(dx = 0,  dy = 1,  cost_matrix = vroads),
+      right = list(dx = 1,  dy = 0,  cost_matrix = hroads),
+      down  = list(dx = 0,  dy = -1, cost_matrix = vroads),
+      left  = list(dx = -1, dy = 0,  cost_matrix = hroads)
+    )
+
+    for (m in moves) {
+      nx <- current$x + m$dx
+      ny <- current$y + m$dy
+
+      print(paste("checking move " ,nx,ny))
+      # bounds check
+      if (!(nx >= 1 && nx <= nrow(g_costs) && ny >= 1 && ny <= ncol(g_costs))) {
+        next
       }
-      if ((g_costs[current$x, current$y + 1] == -1) || (g_costs[current$x, current$y + 1] > g_costs[current$x, current$y] + vroads[current$x, current$y + 1])) {
-        # value is unset or value is greater than our value, set/update the value 
-        g_costs[current$x, current$y + 1] = g_costs[current$x, current$y] + vroads[current$x, current$y + 1]
+
+      # set h_cost if unset
+      if (h_costs[nx, ny] == -1) {
+        h_costs[nx, ny] <- manhattan(nx, ny, target$x, target$y)
       }
+      # movement cost from current to neighbor
+      move_cost <- m$cost_matrix[nx, ny]
+      new_g <- g_costs[current$x, current$y] + move_cost
+      # update g_cost if unset or better path found
+      if (g_costs[nx, ny] == -1 || g_costs[nx, ny] > new_g) {
+        g_costs[nx, ny] <- new_g
+      }
+
+      frontier$head <- insert_value_at_correct_place(frontier$head,nx,ny,dim,g_costs,h_costs)    
     }
-    # check right cell (if in bounds)
-    if (current$x + 1 <= nrow(hroads)) {
-      if (h_costs[current$x + 1, current$y] == -1) {
-        h_costs[current$x + 1, current$y] = manhattan(current$x + 1, current$y, target$x,target$y)
-      }
-      if ((g_costs[current$x + 1, current$y] == -1) || (g_costs[current$x + 1, current$y] > g_costs[current$x, current$y] + hroads[current$x + 1, current$y])) {
-        # value is unset or value is greater than our value, set/update the value
-        g_costs[current$x + 1, current$y] = g_costs[current$x, current$y] + vroads[current$x + 1, current$y]
-      }
+    print_list(frontier$head)
+    temp = temp+1
+    if(temp == 2){
+      stop("STOPP")
     }
-    # check down cell (if in bounds)
-    if (current$y - 1 >= 1) {
-      if(h_costs[current$x, current$y - 1] == -1){
-        h_costs[current$x, current$y - 1] = manhattan(current$x, current$y - 1, target$x,target$y)
-      }
-      if ((g_costs[current$x, current$y - 1] == -1) || (g_costs[current$x, current$y - 1] > g_costs[current$x, current$y] + vroads[current$x, current$y - 1])) {
-        # value is unset or value is greater than our value, set/update the value 
-        g_costs[current$x, current$y - 1] = g_costs[current$x, current$y] + vroads[current$x, current$y - 1]
-      }
-    }
-    # check left cell (if in bounds)
-    if (current$x - 1 >= 1) {
-      if(h_costs[current$x -1, current$y] == -1){
-        h_costs[current$x -1, current$y] = manhattan(current$x -1, current$y, target$x,target$y)
-      }
-      if ((g_costs[current$x - 1, current$y] == -1) || (g_costs[current$x - 1, current$y] > g_costs[current$x, current$y] + hroads[current$x - 1, current$y])) {
-        # value is unset or value is greater than our value, set/update the value
-        g_costs[current$x - 1, current$y] = g_costs[current$x, current$y] + vroads[current$x - 1, current$y]
-      }
-    }
-  }
+  } 
 
-  #### BEGINNING OF NAIVE IMPLEMENTATION #### 
-  # NAIVE IMPLEMENTATION: Does not take cost of roads into account 
-  #diff_x = target$x - start$x
-  #diff_y = target$y - start$y
-
-  #if (diff_x == 0 && diff_y == 0) {
-  #  return(0)
-  #}
-
-  #if(abs(diff_x) > abs(diff_y)) {
-  #  next_move = ifelse(sign(diff_x) == 1, 6,4)
-  #}
-  #else {
-  #  next_move = ifelse(sign(diff_y) == 1, 8,2)
-  #}
-  ##### END OF NAIVE IMPLEMENTATION ####
-
-  #print(paste("next_move",next_move))
-
-  #next_move
+  stop("Lämnade while-loopen")
 }
