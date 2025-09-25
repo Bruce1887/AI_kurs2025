@@ -1,4 +1,7 @@
 myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
+  # print(paste("myFunction called. Car at (", car$x, ",", car$y, "), load=", car$load))
+
+
   dim <- nrow(roads$vroads);
   if(ncol(roads$hroads) != nrow(roads$vroads)) {
     stop(paste("bad dimension",dim))
@@ -18,23 +21,33 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
   car
 }
 
-a_star <- function(start,target,roads,dim) {
-  target_found <- FALSE
+a_star <- function(start, target, roads, dim) {
+  # If already at target, stay still
+  if (start$x == target$x && start$y == target$y) {
+    return(5)
+  }
+  
   current = start
 
   # F cost = G cost (distance from start) + H cost (distance from end)
   g_costs = matrix(rep(-1,dim*dim),nrow=dim)
   h_costs = matrix(rep(-1,dim*dim),nrow=dim)
-  # f_costs = <blablabla> # vi behöver inte en f_costs matris, vi deriverar den från g & h
   
+  # visited matriser för att hålla koll på vilka noder som redan är besökta
+  visited <- matrix(FALSE, nrow=dim, ncol=dim)
+  
+  # Parent tracking for path reconstruction
+  parent <- array(list(NULL), dim=c(dim, dim))
+
   # Sätt g kostnaded på första rutan till 0, behövs för att räkna g_kostnaden till andra rutor.
   g_costs[start$x,start$y] = 0
+  h_costs[start$x,start$y] = abs(start$x - target$x) + abs(start$y - target$y)
 
   manhattan <- function(ax, ay, bx, by){
     return (abs(ax-bx) + abs(ay-by))
   }
 
-  make_node <- function(x,y, next_node) {
+  make_node <- function(x, y, next_node) {
     node <- new.env(parent = emptyenv())
     node$x <- x
     node$y <- y
@@ -42,35 +55,21 @@ a_star <- function(start,target,roads,dim) {
     node
   }
 
-  print_list <- function(head) {
-    cat("List: ")
-    cur <- head
-    while (!is.null(cur)) {
-      cat(cur$value, "-> ")
-      cur <- cur$next_node
-    }
-    cat("NULL\n")
-  }
-
   insert_value_at_correct_place <- function(head, x, y, dim, g_costs, h_costs) {
     new_g <- g_costs[x, y]
     new_h <- h_costs[x, y]
     new_f <- new_g + new_h
-    print(paste("new",x,y,"[",new_g,",",new_h,",",new_f,"]"))
 
     if (is.null(head)) {
-      message("inserted new head ", x, y, " in empty list")
-      return(make_node(x,y,NULL))
+      return(make_node(x, y, NULL))
     }
 
     head_g <- g_costs[head$x, head$y]
     head_h <- h_costs[head$x, head$y]
     head_f <- head_g + head_h
-    print(paste("head",head$x,head$y,"[",head_g,",",head_h,",",head_f,"]"))
     
     if (new_f < head_f || (new_f == head_f && new_g <= head_g)) {
-      new_node <- make_node(x,y, head)
-      message("inserted new head ", x, y, " in non-empty list")
+      new_node <- make_node(x, y, head)
       return(new_node)
     }
 
@@ -80,7 +79,6 @@ a_star <- function(start,target,roads,dim) {
       next_g <- g_costs[next_node$x, next_node$y]
       next_h <- h_costs[next_node$x, next_node$y]
       next_f <- next_g + next_h
-      print(paste("next",next_node$x,next_node$y,"[",next_g,",",next_h,",",next_f,"]"))
 
       if (new_f < next_f || (new_f == next_f && new_g <= next_g)) {
         break
@@ -88,14 +86,32 @@ a_star <- function(start,target,roads,dim) {
       current <- current$next_node
     }
 
-    message("inserted ", x,y, " after ", current$x,current$y)
-    new_node <- make_node(x,y, current$next_node)
-    current$next_node <- new_node   # this mutates the original list because nodes are environments
-    print_list(head)
+    new_node <- make_node(x, y, current$next_node)
+    current$next_node <- new_node
     return(head)
   }
 
+  print_list <- function(head) {
+    cat("printing list..\n")
+    current <- head
+    while (!is.null(current)) {
+      cat(current$x, current$y, " -> ")
+      current <- current$next_node
+    }
+    cat("NULL\n")
+  }
 
+
+  already_in_frontier <- function(head, x, y) {
+    current <- head
+    while (!is.null(current)) {
+      if (current$x == x && current$y == y) {
+        return(TRUE)
+      }
+      current <- current$next_node
+    }
+    return(FALSE)
+  }
 
   pop_front <- function(head_ref) {
     if (is.null(head_ref$head)) return(NULL)
@@ -104,51 +120,53 @@ a_star <- function(start,target,roads,dim) {
     old_head
   }
 
-  # Print the list
-  print_list <- function(node) {
-    print("printing list..")
-    while (!is.null(node)) {
-      cat(paste(node$x,node$y), " -> ")
-      node <- node$next_node
-    }
-    cat("NULL\n")
-  }
-
   # Create a head reference as environment
   frontier <- new.env()
   frontier$head <- make_node(current$x, current$y, NULL)
-
-  print_list(frontier$head)
   
-  next_move <- -1
+  iteration_count <- 0
+  max_iterations <- 1000
 
-  print(paste("<current>", current$x,current$y, ", <target>", target$x,target$y))
-
-  temp = 0
-  while(!(current$x == target$x && current$y == target$y)) {
-
-    print("")
-    print("#### TOP OF LOOP ####")
-
-    first <-pop_front(frontier)
-    if(is.null(first)) {
-      stop("Could not pop first element (got null)")
-    }
-
-    if((current$x == target$x && current$y == target$y))
-    {
-      print("WE FOUND THE TARGET")
+  while (!is.null(frontier$head) && iteration_count < max_iterations) {
+    iteration_count <- iteration_count + 1
+    
+    first <- pop_front(frontier)
+    if (is.null(first)) {
       break
     }
 
+    # Skip if this node was already visited
+    if (visited[first$x, first$y]) {
+      next
+    }
+    visited[first$x, first$y] <- TRUE
 
-    print(paste("popped:", first$x,first$y))
+    current <- list(x = first$x, y = first$y)
 
-    current = list(
-      x=first$x,
-      y=first$y)
-
-    print(paste("current:", current$x,current$y))
+    # Check if we found the target
+    if (current$x == target$x && current$y == target$y) {
+      # Reconstruct path to get first move
+      path_x <- current$x
+      path_y <- current$y
+      
+      # Trace back to find the first move
+      while (!is.null(parent[[path_x, path_y]])) {
+        prev_pos <- parent[[path_x, path_y]]
+        if (prev_pos$x == start$x && prev_pos$y == start$y) {
+          # This is the first move
+          dx <- path_x - start$x
+          dy <- path_y - start$y
+          
+          if (dx == 1) return(6)      # Right
+          if (dx == -1) return(4)     # Left  
+          if (dy == 1) return(8)      # Up
+          if (dy == -1) return(2)     # Down
+        }
+        path_x <- prev_pos$x
+        path_y <- prev_pos$y
+      }
+      return(5)  # Stay still if no clear path
+    }
 
     hroads <- roads$hroads
     vroads <- roads$vroads
@@ -165,10 +183,13 @@ a_star <- function(start,target,roads,dim) {
       nx <- current$x + m$dx
       ny <- current$y + m$dy
 
-      print(paste("checking move " ,nx,ny, "from ", current$x,current$y))
-
       # bounds check
       if (!(nx >= 1 && nx <= nrow(g_costs) && ny >= 1 && ny <= ncol(g_costs))) {
+        next
+      }
+
+      # Skip if already visited
+      if (visited[nx, ny]) {
         next
       }
 
@@ -185,22 +206,21 @@ a_star <- function(start,target,roads,dim) {
       if (m$dy == 1) road_y <- road_y - 1
 
       move_cost <- m$cost_matrix[road_x, road_y]
-      print(paste("move_cost",move_cost))
 
       new_g <- g_costs[current$x, current$y] + move_cost
+      
       # update g_cost if unset or better path found
       if (g_costs[nx, ny] == -1 || g_costs[nx, ny] > new_g) {
         g_costs[nx, ny] <- new_g
+        parent[[nx, ny]] <- list(x = current$x, y = current$y)
+        if (!already_in_frontier(frontier$head, nx, ny)) {
+          frontier$head <- insert_value_at_correct_place(frontier$head, nx, ny, dim, g_costs, h_costs)
+        }
+        # print_list(frontier$head)  # Debug print of the frontier list
       }
-
-      frontier$head <- insert_value_at_correct_place(frontier$head,nx,ny,dim,g_costs,h_costs)    
-    }
-    print_list(frontier$head)
-    temp = temp+1
-    if(temp == 4){
-      stop("Det här är bara en stopp för debug-puposes")
     }
   } 
 
-  stop("Lämnade while-loopen")
+  # No path found, stay still
+  return(5)
 }
