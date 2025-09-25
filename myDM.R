@@ -53,17 +53,20 @@ a_star <- function(start,target,roads,dim) {
   }
 
   insert_value_at_correct_place <- function(head, x, y, dim, g_costs, h_costs) {
+    new_g <- g_costs[x, y]
+    new_h <- h_costs[x, y]
+    new_f <- new_g + new_h
+    print(paste("new",x,y,"[",new_g,",",new_h,",",new_f,"]"))
+
     if (is.null(head)) {
       message("inserted new head ", x, y, " in empty list")
       return(make_node(x,y,NULL))
     }
 
-    new_g <- g_costs[x, y]
-    new_f <- new_g + h_costs[x, y]
-
-
     head_g <- g_costs[head$x, head$y]
-    head_f <- head_g + h_costs[head$x, head$y]
+    head_h <- h_costs[head$x, head$y]
+    head_f <- head_g + head_h
+    print(paste("head",head$x,head$y,"[",head_g,",",head_h,",",head_f,"]"))
     
     if (new_f < head_f || (new_f == head_f && new_g <= head_g)) {
       new_node <- make_node(x,y, head)
@@ -75,7 +78,9 @@ a_star <- function(start,target,roads,dim) {
     while (!is.null(current$next_node)) {
       next_node <- current$next_node
       next_g <- g_costs[next_node$x, next_node$y]
-      next_f <- next_g + h_costs[next_node$x, next_node$y]
+      next_h <- h_costs[next_node$x, next_node$y]
+      next_f <- next_g + next_h
+      print(paste("next",next_node$x,next_node$y,"[",next_g,",",next_h,",",next_f,"]"))
 
       if (new_f < next_f || (new_f == next_f && new_g <= next_g)) {
         break
@@ -122,7 +127,8 @@ a_star <- function(start,target,roads,dim) {
   temp = 0
   while(!(current$x == target$x && current$y == target$y)) {
 
-    print("#### TOP OF LOOP ####\n")
+    print("")
+    print("#### TOP OF LOOP ####")
 
     first <-pop_front(frontier)
     if(is.null(first)) {
@@ -149,17 +155,18 @@ a_star <- function(start,target,roads,dim) {
 
     # Define possible moves: (dx, dy, cost_matrix)
     moves <- list(
-      up    = list(dx = 0,  dy = 1,  cost_matrix = vroads),
-      right = list(dx = 1,  dy = 0,  cost_matrix = hroads),
+      up    = list(dx = 0,  dy = 1, cost_matrix = vroads),
+      right = list(dx = 1,  dy = 0, cost_matrix = hroads),
       down  = list(dx = 0,  dy = -1, cost_matrix = vroads),
-      left  = list(dx = -1, dy = 0,  cost_matrix = hroads)
+      left  = list(dx = -1, dy = 0, cost_matrix = hroads)
     )
 
     for (m in moves) {
       nx <- current$x + m$dx
       ny <- current$y + m$dy
 
-      print(paste("checking move " ,nx,ny))
+      print(paste("checking move " ,nx,ny, "from ", current$x,current$y))
+
       # bounds check
       if (!(nx >= 1 && nx <= nrow(g_costs) && ny >= 1 && ny <= ncol(g_costs))) {
         next
@@ -169,8 +176,17 @@ a_star <- function(start,target,roads,dim) {
       if (h_costs[nx, ny] == -1) {
         h_costs[nx, ny] <- manhattan(nx, ny, target$x, target$y)
       }
+
       # movement cost from current to neighbor
-      move_cost <- m$cost_matrix[nx, ny]
+      road_x = nx
+      road_y = ny
+
+      if (m$dx == 1) road_x <- road_x - 1
+      if (m$dy == 1) road_y <- road_y - 1
+
+      move_cost <- m$cost_matrix[road_x, road_y]
+      print(paste("move_cost",move_cost))
+
       new_g <- g_costs[current$x, current$y] + move_cost
       # update g_cost if unset or better path found
       if (g_costs[nx, ny] == -1 || g_costs[nx, ny] > new_g) {
@@ -181,8 +197,8 @@ a_star <- function(start,target,roads,dim) {
     }
     print_list(frontier$head)
     temp = temp+1
-    if(temp == 2){
-      stop("STOPP")
+    if(temp == 4){
+      stop("Det här är bara en stopp för debug-puposes")
     }
   } 
 
