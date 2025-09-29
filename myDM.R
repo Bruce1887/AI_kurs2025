@@ -1,4 +1,16 @@
 myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
+  
+  # if (length(car$mem) == 0) {
+  #   car$mem$temp <- 1
+  # }
+  # else {
+  #   car$mem$temp = car$mem$temp + 1
+  # }
+  # if(car$mem$temp < 20) {
+  #   car$nextMove = 5
+  #   return(car)
+  # }
+
   dim <- nrow(roads$vroads);
   if(ncol(roads$hroads) != nrow(roads$vroads)) {
     stop(paste("bad dimension",dim))
@@ -16,13 +28,12 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
     cheapest <- list(step_direction= -1, cost = Inf)
 
     start <- list(x=car$x,y=car$y)
-    print(paste("start",start$x,start$y))
+    # print(paste("start",start$x,start$y))
 
     for(idx in notpickedup)
     {
-      print(paste("idx:",idx))
-      p <- packages[idx, ]   # select the full row
-      print(p)
+      p <- packages[idx, ] # select the full row
+      # print(p)
 
       package_pickup <- list(x=p[1],y=p[2])
       # print(paste("package_pickup:",package_pickup$x,package_pickup$y))
@@ -31,10 +42,17 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
       # print(paste("package_target:",package_target$x,package_target$y))
 
       first_trip = a_star(start,package_pickup,roads,dim)
-      print(paste("first_trip:",first_trip$direction,first_trip$cost))
+      # print(paste("first_trip:",first_trip$direction,first_trip$cost))
 
       second_trip = a_star(package_pickup,package_target,roads,dim)
-      print(paste("second_trip:",second_trip$direction,second_trip$cost))
+      # print(paste("second_trip:",second_trip$direction,second_trip$cost))
+
+      # print("Horizontal roads:")
+      # print(roads$hroads)
+      # print("Vertical roads:")
+      # print(roads$vroads)
+
+      # stop("devbug")
 
       tot_cost <- first_trip$cost + second_trip$cost
 
@@ -44,7 +62,7 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
         cheapest$cost = tot_cost
       }
     }
-    print(paste("cheapest", cheapest))
+    # print(paste("cheapest", cheapest))
     car$nextMove = cheapest$step_direction
   }
   
@@ -64,7 +82,7 @@ a_star <- function(start, target, roads, dim) {
   h_costs = matrix(rep(-1,dim*dim),nrow=dim)
   
   # visited matriser för att hålla koll på vilka noder som redan är besökta
-  visited <- matrix(FALSE, nrow=dim, ncol=dim)
+  # visited <- matrix(FALSE, nrow=dim, ncol=dim)
   
   # Parent tracking for path reconstruction
   parent <- array(list(NULL), dim=c(dim, dim))
@@ -160,27 +178,33 @@ a_star <- function(start, target, roads, dim) {
   while (!is.null(frontier$head) && iteration_count < max_iterations) {
     iteration_count <- iteration_count + 1
     
+    # print_list(frontier$head)
+    
     first <- pop_front(frontier)
     if (is.null(first)) {
-      break
+      stop("frontier pop gave null. BAD!")
     }
 
     # Skip if this node was already visited
-    if (visited[first$x, first$y]) {
-      next
-    }
-    visited[first$x, first$y] <- TRUE
+    # if (visited[first$x, first$y]) {
+    #   next
+    # }
+    # visited[first$x, first$y] <- TRUE
 
     current <- list(x = first$x, y = first$y)
 
+    
     # Check if we found the target
     if (current$x == target$x && current$y == target$y) {
       # Reconstruct path to get first move
       path_x <- current$x
       path_y <- current$y
-      
+
+      # print(paste("found way from", start$x,start$y, "to", target$x,target$y))
+
       # Trace back to find the first move
       while (!is.null(parent[[path_x, path_y]])) {
+        # print(paste("path",path_x,path_y))
         prev_pos <- parent[[path_x, path_y]]
         if (prev_pos$x == start$x && prev_pos$y == start$y) {
           # This is the first move
@@ -221,9 +245,9 @@ a_star <- function(start, target, roads, dim) {
       }
 
       # Skip if already visited
-      if (visited[nx, ny]) {
-        next
-      }
+      # if (visited[nx, ny]) {
+      #   next
+      # }
 
       # set h_cost if unset
       if (h_costs[nx, ny] == -1) {
