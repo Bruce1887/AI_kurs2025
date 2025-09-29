@@ -1,7 +1,4 @@
 myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
-  # print(paste("myFunction called. Car at (", car$x, ",", car$y, "), load=", car$load))
-
-
   dim <- nrow(roads$vroads);
   if(ncol(roads$hroads) != nrow(roads$vroads)) {
     stop(paste("bad dimension",dim))
@@ -9,13 +6,46 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
 
   if (car$load>0) {
     # FLytta postgubben med A_star algoritmen när du har ett paket
-    car$nextMove = a_star(list(x=car$x,y=car$y), list(x=packages[car$load,3],y=packages[car$load,4]),roads,dim)
+    ret <- a_star(list(x=car$x,y=car$y), list(x=packages[car$load,3],y=packages[car$load,4]),roads,dim)
+    car$nextMove = ret$direction 
   }
   else {
-    # TODO: Flytta postgubben automatiskt (inte manuellt) när du inte har ett paket 
-    car$nextMove=readline("Enter next move. Valid moves are 2,4,6,8,0 (directions as on keypad) or q for quit.")
     
-    if (car$nextMove=="q") {stop("Game terminated on user request.")}
+    notpickedup=which(packages[,5]==0)
+
+    cheapest <- list(step_direction= -1, cost = Inf)
+
+    start <- list(x=car$x,y=car$y)
+    print(paste("start",start$x,start$y))
+
+    for(idx in notpickedup)
+    {
+      print(paste("idx:",idx))
+      p <- packages[idx, ]   # select the full row
+      print(p)
+
+      package_pickup <- list(x=p[1],y=p[2])
+      # print(paste("package_pickup:",package_pickup$x,package_pickup$y))
+      
+      package_target <- list(x=p[3],y=p[4])
+      # print(paste("package_target:",package_target$x,package_target$y))
+
+      first_trip = a_star(start,package_pickup,roads,dim)
+      print(paste("first_trip:",first_trip$direction,first_trip$cost))
+
+      second_trip = a_star(package_pickup,package_target,roads,dim)
+      print(paste("second_trip:",second_trip$direction,second_trip$cost))
+
+      tot_cost <- first_trip$cost + second_trip$cost
+
+      if(tot_cost < cheapest$cost) {
+        # välj det paket som har billigast kostnad (utan att väga in hur de andra paketen samspelar)
+        cheapest$step_direction = first_trip$direction
+        cheapest$cost = tot_cost
+      }
+    }
+    print(paste("cheapest", cheapest))
+    car$nextMove = cheapest$step_direction
   }
   
   car
@@ -24,7 +54,7 @@ myFunction <- function(roads, car, packages) { # nolint: object_name_linter.
 a_star <- function(start, target, roads, dim) {
   # If already at target, stay still
   if (start$x == target$x && start$y == target$y) {
-    return(5)
+    return(list(direction=5,cost=0))
   }
   
   current = start
@@ -157,15 +187,17 @@ a_star <- function(start, target, roads, dim) {
           dx <- path_x - start$x
           dy <- path_y - start$y
           
-          if (dx == 1) return(6)      # Right
-          if (dx == -1) return(4)     # Left  
-          if (dy == 1) return(8)      # Up
-          if (dy == -1) return(2)     # Down
+          c <- g_costs[target$x,target$y] 
+          if (dx == 1) return(list(direction=6,cost=c))      # Right
+          if (dx == -1) return(list(direction=4,cost=c))     # Left  
+          if (dy == 1) return(list(direction=8,cost=c))      # Up
+          if (dy == -1) return(list(direction=2,cost=c))     # Down
         }
         path_x <- prev_pos$x
         path_y <- prev_pos$y
       }
-      return(5)  # Stay still if no clear path
+      stop("no clear path! This is bad!")
+      return(list(direction=5,cost=Inf))  # Stay still if no clear path
     }
 
     hroads <- roads$hroads
@@ -211,6 +243,7 @@ a_star <- function(start, target, roads, dim) {
       
       # update g_cost if unset or better path found
       if (g_costs[nx, ny] == -1 || g_costs[nx, ny] > new_g) {
+        # print(paste("<nx,ny> new_g", nx,ny,new_g))
         g_costs[nx, ny] <- new_g
         parent[[nx, ny]] <- list(x = current$x, y = current$y)
         if (!already_in_frontier(frontier$head, nx, ny)) {
@@ -222,5 +255,6 @@ a_star <- function(start, target, roads, dim) {
   } 
 
   # No path found, stay still
-  return(5)
+  stop("no path found! This is bad!")
+  return(list(direction=5,cost=Inf))  # Stay still if no clear path
 }
